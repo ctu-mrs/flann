@@ -211,7 +211,25 @@ struct L2Dubins
 	typedef T ElementType;
 	typedef typename Accumulator<T>::Type ResultType;
 
-	double radius = 0;
+	static T radius;
+
+	static inline T normalize_angle_positive(T angle)
+			{
+		return fmod(fmod(angle, 2.0 * M_PI) + 2.0 * M_PI, 2.0 * M_PI);
+	}
+
+	static inline T normalize_angle(T angle)
+			{
+		double a = normalize_angle_positive(angle);
+		if ( a > M_PI )
+		a -= 2.0 * M_PI;
+		return a;
+	}
+
+	static inline T shortest_angular_distance(T from, T to)
+			{
+		return normalize_angle(to - from);
+	}
 	/**
 	 *  Compute the squared Euclidean distance between two vectors.
 	 *
@@ -227,17 +245,17 @@ struct L2Dubins
 		ResultType result = ResultType();
 		ResultType diff0, diff1, diff2;
 		Iterator1 last = a + size;
-		Iterator1 lastgroup = last - 3;
-
+		Iterator1 lastgroup = last - 2;
+		//std::cout << radius <<std::endl;
 		/* Process 4 items with each loop for efficiency. */
 		while ( a < lastgroup ) {
 			diff0 = (ResultType) (a[0] - b[0]);
 			diff1 = (ResultType) (a[1] - b[1]);
-			diff2 = (ResultType) ((a[2] - b[2]));
+			diff2 = (ResultType) (shortest_angular_distance(a[2], b[2]));
 
-			result += diff0 * diff0 + diff1 * diff1 + radius * diff2 * diff2;
-			a += 4;
-			b += 4;
+			result += diff0 * diff0 + diff1 * diff1 + radius * radius * diff2 * diff2;
+			a += 3;
+			b += 3;
 
 			if ( (worst_dist > 0) && (result > worst_dist) ) {
 				return result;
@@ -261,12 +279,16 @@ struct L2Dubins
 	inline ResultType accum_dist(const U& a, const V& b, int part) const
 			{
 		if ( part == 2 ) {
-			return radius * (a - b) * (a - b);
+			ResultType ang_diff = shortest_angular_distance(a, b);
+			return radius * radius * ang_diff * ang_diff;
 		} else {
 			return (a - b) * (a - b);
 		}
 	}
 };
+template<class T>
+T L2Dubins<T>::radius = 0;
+
 
 /*
  * Manhattan distance functor, optimized version
